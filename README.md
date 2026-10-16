@@ -31,3 +31,9 @@ Open `index.html` in a browser, or serve the folder with any static web server. 
 The page includes a reported science competition published by *The Tribune* on 6 February 2023: https://www.tribuneindia.com/news/schools/saraswati-sr-sec-school-bilaspur-yamuna-nagar-477171/
 
 Hosted as a static site, including GitHub Pages.
+
+
+## Homepage design update
+The homepage now follows a school-portal layout inspired by modern district education websites: a utility strip, expanded navigation with school links, wide photography-led hero, admission information banner, quick links, school facts, featured learning cards, published news, notices and calendar placeholder.
+
+This design uses Saraswati's own green-and-gold identity. Do not add unconfirmed announcements or dates. Replace illustrative photos with school-approved photos, verify official details, and connect enquiry forms before launch.
