@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#173f35">
-  <meta name="description" content="Secure staff, student and parent portal for Saraswati Senior Secondary School.">
+  <meta name="description" content="School ERP demonstration portal for Saraswati Senior Secondary School.">
   <title>School ERP | Saraswati Senior Secondary School</title>
   <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
   <link rel="stylesheet" href="./styles.css">
@@ -21,54 +21,89 @@
     <a class="back-link" href="../index.html">← Public website</a>
   </header>
 
-  <main id="main" class="page-shell">
-    <section class="intro">
-      <span class="eyebrow">SCHOOL ERP · PHASE 1</span>
-      <h1>One school community.<br><em>One secure portal.</em></h1>
-      <p>A single sign-in for school staff, students and parents. Each account will only see the information its approved role is allowed to access.</p>
-      <div class="trust-points">
-        <span><b aria-hidden="true">✓</b> Role-based access</span>
-        <span><b aria-hidden="true">✓</b> School-managed accounts</span>
-        <span><b aria-hidden="true">✓</b> Private records by design</span>
-      </div>
+  <main id="main">
+    <section id="login-layout" class="page-shell">
+      <section class="intro">
+        <span class="eyebrow">SCHOOL ERP · INTERACTIVE DEMO</span>
+        <h1>One school community.<br><em>One connected portal.</em></h1>
+        <p>Explore how the principal, finance team, teachers and students can work together. This sandbox uses fictional records only and is safe to reset.</p>
+        <div class="trust-points">
+          <span><b aria-hidden="true">✓</b> Separate role workspaces</span>
+          <span><b aria-hidden="true">✓</b> Marks and datesheets</span>
+          <span><b aria-hidden="true">✓</b> Fee records and attendance</span>
+        </div>
+      </section>
+
+      <section class="auth-card" aria-labelledby="portal-title">
+        <div class="card-mark" aria-hidden="true">S</div>
+        <div id="login-panel">
+          <span class="eyebrow">WELCOME</span>
+          <h2 id="portal-title">Sign in to your portal</h2>
+          <p class="muted">Use one of the demo accounts below.</p>
+
+          <div id="demo-notice" class="notice notice-warn" role="status">
+            DEMO MODE — sample records are stored only in this browser. Do not enter real student information or make real payments.
+          </div>
+          <div id="setup-notice" class="notice notice-info" role="status" hidden>
+            Live sign-in needs the school's Supabase project configuration. Demo accounts are available separately on this preview.
+          </div>
+
+          <form id="login-form">
+            <label for="email">Email address</label>
+            <input id="email" name="email" type="email" autocomplete="username" placeholder="Choose a demo account below" required>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Demo password" required>
+            <button id="login-button" class="primary-button" type="submit">Sign in <span aria-hidden="true">→</span></button>
+            <p id="login-status" class="form-status" role="status" aria-live="polite"></p>
+          </form>
+
+          <details class="demo-accounts" id="demo-account-list">
+            <summary>Choose a demo account</summary>
+            <p class="demo-password">Shared demo password: <code>Demo@12345</code></p>
+            <div id="demo-account-buttons" class="demo-account-buttons"></div>
+          </details>
+          <p class="help-note">All names, results, attendance records, notices and fees shown in demo mode are fictional.</p>
+        </div>
+
+        <div class="security-caption"><span aria-hidden="true">▣</span> Real ERP access will use school-managed accounts and database permissions.</div>
+      </section>
     </section>
 
-    <section class="auth-card" aria-labelledby="portal-title">
-      <div class="card-mark" aria-hidden="true">S</div>
-      <div id="login-panel">
-        <span class="eyebrow">WELCOME BACK</span>
-        <h2 id="portal-title">Sign in to your portal</h2>
-        <p class="muted">Use the school-issued email and password.</p>
-        <div id="setup-notice" class="notice notice-warn" role="status" hidden>
-          The secure backend has not been configured on this preview. Add the school's Supabase project settings in <code>erp/config.js</code> and apply the SQL setup before enabling sign-in.
+    <section id="portal-root" class="portal-layout" hidden aria-label="School ERP workspace">
+      <aside class="sidebar">
+        <a class="sidebar-brand" href="../index.html">
+          <img src="../assets/logo.svg" alt="" width="38" height="38">
+          <span><strong>Saraswati ERP</strong><small>School workspace</small></span>
+        </a>
+        <div class="sidebar-section-title">WORKSPACE</div>
+        <nav id="portal-nav" class="portal-nav" aria-label="ERP navigation"></nav>
+        <div class="sidebar-bottom">
+          <div class="user-chip"><span id="user-avatar" class="avatar">S</span><span><strong id="user-name">Demo User</strong><small id="user-role">Demo role</small></span></div>
+          <button id="logout-button" class="sidebar-logout" type="button"><span aria-hidden="true">↪</span> Sign out</button>
         </div>
-        <form id="login-form">
-          <label for="email">Email address</label>
-          <input id="email" name="email" type="email" autocomplete="username" placeholder="you@school.edu.in" required>
-          <label for="password">Password</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
-          <button id="login-button" class="primary-button" type="submit">Sign in securely <span aria-hidden="true">→</span></button>
-          <p id="login-status" class="form-status" role="status" aria-live="polite"></p>
-        </form>
-        <p class="help-note">Need access? Contact the school office. Public self-registration is not available.</p>
+      </aside>
+      <div class="workspace">
+        <header class="workspace-header">
+          <div>
+            <p class="workspace-kicker">SARASWATI SENIOR SECONDARY SCHOOL <span>·</span> 2026–27</p>
+            <h1 id="view-title">Overview</h1>
+          </div>
+          <div class="workspace-actions">
+            <span id="mode-badge" class="mode-badge">DEMO SANDBOX</span>
+            <button id="reset-demo-button" class="secondary-button reset-button" type="button" hidden>Reset demo data</button>
+          </div>
+        </header>
+        <div id="demo-banner" class="demo-banner"><span aria-hidden="true">ⓘ</span><span><strong>Demo sandbox</strong> — records are fictional and saved only in this browser. No messages, payments or real uploads are sent.</span></div>
+        <div id="portal-status" class="portal-status" role="status" aria-live="polite"></div>
+        <div id="portal-view" class="portal-view"></div>
+        <footer class="workspace-footer"><span>© <span data-year>2026</span> Saraswati Senior Secondary School</span><span>ERP demo · Not for official records</span></footer>
       </div>
-
-      <div id="dashboard-panel" hidden>
-        <span class="eyebrow">YOUR WORKSPACE</span>
-        <h2 id="welcome-title">Welcome</h2>
-        <p id="role-summary" class="muted"></p>
-        <div id="role-cards" class="role-cards"></div>
-        <div class="notice notice-info">This is the Phase 1 foundation. Attendance, marks, datesheets and other records will appear after their modules are built and tested.</div>
-        <button id="logout-button" class="secondary-button" type="button">Sign out</button>
-        <p id="dashboard-status" class="form-status" role="status" aria-live="polite"></p>
-      </div>
-      <div class="security-caption"><span aria-hidden="true">▣</span> Account permissions are checked against school-managed records.</div>
     </section>
   </main>
 
-  <footer class="footer">
+  <footer id="public-footer" class="footer">
     <span>© <span data-year>2026</span> Saraswati Senior Secondary School</span>
-    <span>School ERP foundation preview · Do not use for real student data yet</span>
+    <span>School ERP foundation preview · fictional data only</span>
   </footer>
 </body>
 </html>
