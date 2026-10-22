@@ -6,6 +6,7 @@ export const DEMO_ACCOUNTS = [
   { email: "principal@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Demo Principal", role: "admin" },
   { email: "finance@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Demo Finance Officer", role: "finance" },
   { email: "teacher@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Demo Class Teacher", role: "teacher" },
+  { email: "parent@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Demo Parent / Guardian", role: "parent", studentIds: ["STU-001", "STU-002"] },
   { email: "aarav@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Aarav Sharma", role: "student", studentId: "STU-001" },
   { email: "ananya@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Ananya Verma", role: "student", studentId: "STU-002" },
   { email: "vivaan@demo.saraswati.test", password: DEMO_PASSWORD, fullName: "Vivaan Singh", role: "student", studentId: "STU-003" },
