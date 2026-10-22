@@ -481,7 +481,11 @@ function renderMarks() {
     formMarkup = `<section class="panel"><form id="marks-form" class="module-form"><h3>Enter student marks</h3><p>Save a fictional score and choose whether it is visible to student accounts immediately.</p><div class="form-grid"><div class="field field-full"><label for="mark-student">Student</label><select id="mark-student" name="studentId" required>${options}</select></div><div class="field"><label for="mark-exam">Exam / assessment</label><input id="mark-exam" name="examTitle" value="Term 2 Assessment (Demo)" maxlength="80" required></div><div class="field"><label for="mark-subject">Subject</label><select id="mark-subject" name="subject" required>${["English", "Mathematics", "Science", "Social Science", "Hindi"].map(subject => `<option>${subject}</option>`).join("")}</select></div><div class="field"><label for="mark-score">Marks scored</label><input id="mark-score" name="score" type="number" min="0" max="100" step="1" value="85" required></div><div class="field"><label for="mark-max">Maximum marks</label><input id="mark-max" name="maxMarks" type="number" min="1" max="1000" step="1" value="100" required></div><div class="field field-full"><label for="mark-status">Publication</label><select id="mark-status" name="status"><option>Published</option><option>Draft</option></select></div></div><button class="primary-button" type="submit">Save marks</button><p class="mini-help">Students and parents can see only published results in this demo.</p></form></section>`;
   }
   const rows = visibleMarks().slice().sort((a, b) => b.examDate.localeCompare(a.examDate)).map(mark => {
-    const action = !isReader ? `<button type="button" class="inline-button" data-action="toggle-mark" data-id="${esc(mark.id)}">${mark.status === "Published" ? "Unpublish" : "Publish"}</button>` : "";
+    const action = currentUser.role === "admin"
+      ? `<button type="button" class="inline-button" data-action="toggle-mark" data-id="${esc(mark.id)}">${mark.status === "Published" ? "Unpublish" : "Publish"}</button>`
+      : currentUser.role === "teacher" && mark.status === "Draft"
+        ? `<button type="button" class="inline-button" data-action="submit-mark-approval" data-id="${esc(mark.id)}">Submit for approval</button>`
+        : esc(mark.status === "Pending approval" ? "Awaiting principal" : mark.status);
     return `<tr>${currentUser.role !== "student" ? `<td><strong>${esc(studentName(mark.studentId))}</strong></td>` : ""}<td><strong>${esc(mark.subject)}</strong><small>${esc(mark.examTitle)}</small></td><td>${esc(mark.score)} / ${esc(mark.maxMarks)}</td><td>${statusPill(mark.status)}</td><td>${action || esc(formatDate(mark.examDate))}</td></tr>`;
   });
   const headers = currentUser.role === "student" ? ["Subject / exam", "Score", "Status", "Exam date"]
@@ -513,15 +517,18 @@ function renderFees() {
   const students = visibleStudents();
   const formMarkup = canEdit ? `<section class="panel"><form id="fee-form" class="module-form"><h3>Create fee invoice</h3><p>Add a fictional fee line for a demo student.</p><div class="form-grid"><div class="field field-full"><label for="fee-student">Student</label><select id="fee-student" name="studentId" required>${students.map(student => `<option value="${esc(student.id)}">${esc(student.fullName)} · ${esc(student.className)}</option>`).join("")}</select></div><div class="field field-full"><label for="fee-description">Fee description</label><input id="fee-description" name="description" maxlength="90" placeholder="e.g. Transport fee — demo" required></div><div class="field"><label for="fee-amount">Amount (₹)</label><input id="fee-amount" name="amount" type="number" min="1" max="1000000" step="1" value="1500" required></div><div class="field"><label for="fee-due">Due date</label><input id="fee-due" name="dueDate" type="date" value="2026-11-15" required></div></div><button class="primary-button" type="submit">Create invoice</button><p class="mini-help">This does not collect money or connect to a payment gateway.</p></form></section>` : "";
   const rows = visibleInvoices().slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(invoice => {
-    const action = canEdit && invoice.status !== "Paid" ? `<button type="button" class="inline-button" data-action="mark-paid" data-id="${esc(invoice.id)}">Mark paid</button>` : "—";
+    const action = canEdit && totalDue(invoice) > 0 ? `<button type="button" class="inline-button" data-action="collect-payment" data-id="${esc(invoice.id)}">Record payment</button>` : "—";
     return `<tr>${currentUser.role !== "student" ? `<td><strong>${esc(studentName(invoice.studentId))}</strong><small>${esc(invoice.id)}</small></td>` : `<td><strong>${esc(invoice.id)}</strong></td>`}<td>${esc(invoice.description)}</td><td>${esc(currency(invoice.amount))}<small>Due ${esc(formatDate(invoice.dueDate))}</small></td><td>${esc(currency(totalDue(invoice)))}</td><td>${statusPill(invoice.status)}</td>${canEdit ? `<td>${action}</td>` : ""}</tr>`;
   });
   const headers = [currentUser.role === "student" ? "Invoice" : "Student / invoice", "Description", "Amount", "Balance due", "Status", ...(canEdit ? ["Action"] : [])];
   const content = panel(canEdit ? "Fee ledger" : (currentUser.role === "parent" ? "Children's fee details" : "My fee details"), table(headers, rows, "No fee records linked to this account."));
+  const visibleIds = new Set(visibleInvoices().map(invoice => invoice.id));
+  const receiptRows = (schoolData.payments || []).filter(payment => visibleIds.has(payment.invoiceId)).sort((a, b) => String(b.date).localeCompare(String(a.date))).map(payment => `<tr><td><strong>${esc(payment.receiptNo)}</strong><small>${esc(formatDate(payment.date))}</small></td><td>${esc(studentName(payment.studentId))}</td><td>${esc(payment.invoiceId)}</td><td>${esc(currency(payment.amount))}</td><td>${esc(payment.method || "Demo entry")}</td><td><button type="button" class="inline-button" data-action="download-receipt" data-id="${esc(payment.id)}">Download receipt</button></td></tr>`);
+  const receipts = panel("Payment receipts", table(["Receipt","Student","Invoice","Amount","Method","Action"], receiptRows, "No payments have been recorded for these invoices."));
   const totals = visibleInvoices().reduce((sum, invoice) => sum + totalDue(invoice), 0);
-  return pageHeading("Fees & payments", canEdit ? "Create invoices and update demo payment statuses." : "Review fictional balances. No real payments can be made here.")
-    + `<div class="stats-grid">${statCard("Invoices", visibleInvoices().length, "Visible fee records", "▤")}${statCard("Outstanding", currency(totals), "Demo unpaid balance", "₹")}${statCard("Payments", visibleInvoices().filter(item => item.status === "Paid").length, "Marked paid in the demo", "✓")}${statCard("Payment gateway", "Off", "No money is collected", "⊘")}</div>`
-    + (formMarkup ? `<div class="module-grid"><div>${content}</div><div>${formMarkup}</div></div>` : content);
+  return pageHeading("Fees & payments", canEdit ? "Create invoices, record fictional payments and download demo receipts." : "Review fictional balances and receipt history. No real payments can be made here.")
+    + `<div class="stats-grid">${statCard("Invoices", visibleInvoices().length, "Visible fee records", "▤")}${statCard("Outstanding", currency(totals), "Demo unpaid balance", "₹")}${statCard("Receipts", receiptRows.length, "Recorded fictional payments", "✓")}${statCard("Payment gateway", "Off", "No money is collected", "⊘")}</div>`
+    + (formMarkup ? `<div class="module-grid"><div>${content}${receipts}</div><div>${formMarkup}</div></div>` : `${content}${receipts}`);
 }
 
 function renderNotices() {
@@ -609,15 +616,21 @@ function saveMarks(form) {
     showPortalMessage("Check the student, exam, and marks. Score must be between zero and maximum marks.", true);
     return;
   }
-  schoolData.marks.push({
+  const savedStatus = currentUser.role === "teacher" ? "Draft" : status;
+  const mark = {
     id: "MRK-" + Date.now(),
-    studentId, examTitle, subject, score, maxMarks, status,
+    studentId, examTitle, subject, score, maxMarks, status: savedStatus,
     examDate: todayISO(), enteredBy: currentUser.fullName
-  });
-  recordAudit((status === "Published" ? "Published" : "Drafted") + " " + subject + " marks for " + studentName(studentId));
+  };
+  schoolData.marks.push(mark);
+  recordAudit((savedStatus === "Published" ? "Published" : "Drafted") + " " + subject + " marks for " + studentName(studentId));
   persistDemoData();
   renderView();
-  showPortalMessage(status === "Published" ? "Marks saved and published to this student's demo account." : "Marks saved as a draft; they are not visible to student accounts.", false);
+  showPortalMessage(currentUser.role === "teacher" && status === "Published"
+    ? "Teacher marks are saved as a draft first. Submit them for principal approval before publishing."
+    : savedStatus === "Published"
+      ? "Marks saved and published to this student's demo account."
+      : "Marks saved as a draft; they are not visible to student accounts.", false);
 }
 
 async function fileToBase64(file) {
@@ -659,7 +672,7 @@ async function saveDatesheet(form) {
 
   try {
     const fileData = await fileToBase64(file);
-    schoolData.datesheets.unshift({
+    const sheet = {
       id: "DS-" + Date.now(),
       title: String(values.get("title") || file.name).trim().slice(0, 90),
       className: String(values.get("className") || "X-A"),
@@ -669,12 +682,17 @@ async function saveDatesheet(form) {
       fileName: file.name.slice(0, 150),
       fileData,
       fileType: file.type || "application/octet-stream",
-      schedule
-    });
+      schedule,
+      status: currentUser.role === "teacher" ? "Pending approval" : "Published"
+    };
+    schoolData.datesheets.unshift(sheet);
+    if (currentUser.role === "teacher") {
+      askApproval("Datesheet publication", "Publish datesheet: " + sheet.title, "Class " + sheet.className + " · " + formatDate(startDate) + " to " + formatDate(endDate), "datesheet", sheet.id);
+    }
     recordAudit("Uploaded demo datesheet: " + file.name);
     persistDemoData();
     renderView();
-    showPortalMessage("Demo datesheet added. It is saved only in this browser and is visible to the other demo accounts in this browser.", false);
+    showPortalMessage(currentUser.role === "teacher" ? "Datesheet uploaded and sent for principal approval." : "Demo datesheet published in the sandbox.", false);
   } catch (error) {
     console.error(error);
     showPortalMessage("Could not store this demo file in browser storage. Try a smaller file or reset the demo.", true);
@@ -970,6 +988,28 @@ async function resetDemoData() {
     showPortalMessage(`${a.title} — ${outcome.toLowerCase()} in the demo.`,false);
   }
 
+  function resolveRequest(id, outcome) {
+    if (!["admin", "teacher"].includes(currentUser.role)) return showPortalMessage("This account cannot resolve school requests.", true);
+    const request = schoolData.requests.find(item => item.id === id && item.status === "Pending");
+    if (!request) return;
+    if (currentUser.role === "teacher" && request.studentId && studentById(request.studentId)?.className !== "X-A") {
+      return showPortalMessage("This request is outside your demo class.", true);
+    }
+    const approved = outcome === "Approved";
+    request.status = approved ? "Approved" : "Declined";
+    const approval = schoolData.approvals.find(item => item.targetType === "request" && item.targetId === id && item.status === "Pending");
+    if (approval) {
+      approval.status = approved ? "Approved" : "Rejected";
+      approval.reviewedBy = currentUser.fullName;
+      approval.reviewedAt = new Date().toISOString();
+    }
+    notify("Request update: " + request.type, "Your request has been " + (approved ? "approved/resolved" : "declined") + " in the demo.", request.requestedRole, request.studentId, request.requestedByEmail);
+    recordAudit((approved ? "Resolved" : "Declined") + " request " + request.id);
+    persistDemoData();
+    renderView();
+    showPortalMessage("Request " + (approved ? "resolved" : "declined") + " in the demo.", false);
+  }
+
   function submitHomework(form) {
     const v=new FormData(form), title=String(v.get("title")||"").trim(), desc=String(v.get("description")||"").trim(), due=String(v.get("dueDate")||"");
     if(!title||!desc||!due)return showPortalMessage("Complete all assignment fields.",true);
@@ -1061,6 +1101,7 @@ async function resetDemoData() {
   function advancedClick(action,id,button) {
     if(!currentIsDemo||!schoolData)return;
     if(action==="resolve-approval")return resolveApproval(id,button.dataset.outcome||"Rejected");
+    if(action==="resolve-request")return resolveRequest(id,button.dataset.outcome||"Rejected");
     if(action==="collect-payment")return submitPayment(id);
     if(action==="download-receipt")return downloadReceipt(id);
     if(action==="export-report")return exportReport(button.dataset.report||"");
@@ -1101,7 +1142,7 @@ async function resetDemoData() {
 
   portalRoot.addEventListener("click",event=>{
     const b=event.target.closest("[data-action]");
-    if(b&&["resolve-approval","collect-payment","download-receipt","export-report","read-notification","read-all-notifications","publish-mark","unpublish-mark","submit-mark-approval","publish-datesheet","review-submission","advance-admission","checkout-book","return-book","issue-inventory","download-resource"].includes(b.dataset.action))advancedClick(b.dataset.action,b.dataset.id,b);
+    if(b&&["resolve-approval","resolve-request","collect-payment","download-receipt","export-report","read-notification","read-all-notifications","publish-mark","unpublish-mark","submit-mark-approval","publish-datesheet","review-submission","advance-admission","checkout-book","return-book","issue-inventory","download-resource"].includes(b.dataset.action))advancedClick(b.dataset.action,b.dataset.id,b);
   });
 
   portalRoot.addEventListener("submit",event=>{
