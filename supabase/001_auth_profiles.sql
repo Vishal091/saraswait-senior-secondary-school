@@ -7,7 +7,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null default '',
   role text not null default 'pending'
-    check (role in ('pending', 'admin', 'teacher', 'parent', 'student')),
+    check (role in ('pending', 'admin', 'finance', 'teacher', 'parent', 'student')),
   phone text,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -53,7 +53,6 @@ begin
 end;
 $$;
 
--- Use a uniquely named trigger so this script only manages its own trigger.
 drop trigger if exists on_auth_user_created_saraswati_profile on auth.users;
 create trigger on_auth_user_created_saraswati_profile
   after insert on auth.users
@@ -100,16 +99,14 @@ create policy "Profiles editable by owner or admin"
   using (id = (select auth.uid()) or public.is_admin())
   with check (id = (select auth.uid()) or public.is_admin());
 
--- No client insert/delete policy is created. The auth trigger creates profiles;
--- initial administrator provisioning is performed via the Supabase SQL Editor.
 revoke all on public.profiles from anon;
 grant select, update on public.profiles to authenticated;
 
--- After creating the initial staff Auth user in the Supabase dashboard, promote
--- only that verified account from the SQL Editor:
+-- Create the first staff Auth user in the Supabase dashboard, then promote only
+-- that verified account via the SQL Editor:
 -- update public.profiles
 -- set role = 'admin', is_active = true
 -- where id = 'REPLACE-WITH-THE-AUTH-USER-UUID';
 --
--- Before real use, test with separate admin, teacher, parent and student accounts.
+-- Demo roles (including finance) are simulated in browser-only demo mode.
 -- This file is only the Phase 1 profile/RLS foundation, not the full ERP schema.
