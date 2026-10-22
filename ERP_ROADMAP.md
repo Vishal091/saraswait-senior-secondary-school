@@ -1,24 +1,24 @@
 # Saraswati School ERP — phased delivery plan
 
-This project currently uses static HTML, CSS and vanilla JavaScript. The existing public website should remain lightweight; the ERP will live in a separate `/erp/` area and use a real authentication/database service. Do not store student records in HTML, JavaScript fixtures, GitHub, or browser local storage.
+The public website remains a static HTML/CSS/vanilla JavaScript site. The ERP has a separate `/erp/` area. The current branch contains a fictional browser-only demo for UX testing and a Supabase profile/auth foundation for a later live rollout.
 
-## Phase 1 — Identity and security foundation (this branch)
+## Phase 1 — Foundation and demonstration (current branch)
 
-- Separate ERP entry point with email/password sign-in.
-- Server-managed roles: administrator, teacher, parent, student; new accounts start as `pending`.
-- Role is read from the database after sign-in. Users cannot choose their own role or self-register into a privileged role.
-- Supabase Auth + PostgreSQL Row Level Security (RLS) foundation.
-- Setup guide, initial profile schema and a role-aware foundation dashboard.
-- No real student data or school credentials are included in this repository.
+- Responsive ERP portal with separate workspaces for principal/admin, finance, teacher, parent and student roles.
+- Eight public demo identities (one principal, one finance officer, one teacher, one parent/guardian and four students) with fictional seed records.
+- Demo attendance, marks, datesheet, notices and fee invoice workflows.
+- Demo edits and small uploads persist only in the current browser and can be reset.
+- Supabase Auth + PostgreSQL profile/RLS foundation for live authentication.
+- Setup guide and explicit production/security checklist.
 
-**Exit criteria:** a Supabase project is configured; four test accounts can sign in; disabled/pending users are rejected; role changes are restricted; access tests confirm users cannot read other profiles; and no service-role key is shipped to the browser.
+**Important:** demo role simulation is not real authentication; it is intentionally unsafe for real records. Live authentication is only a foundation. No real ERP data modules are connected yet.
 
 ## Phase 2 — School setup and records
 
 - Academic sessions, classes, sections and subjects.
 - Student admission records, roll numbers, guardian-to-student links.
 - Teacher accounts, class-teacher assignments and subject assignments.
-- CSV import with preview, validation, duplicate detection and a rollback path.
+- CSV import with preview, validation, duplicate detection and rollback.
 - Admin change history for sensitive record updates.
 
 ## Phase 3 — Attendance
@@ -39,10 +39,10 @@ This project currently uses static HTML, CSS and vanilla JavaScript. The existin
 
 ## Phase 5 — Learning and communication
 
-- Timetable, homework/assignments, approved learning resources and submission status.
-- Notices/circulars targeted by audience or class, with attachments and expiry dates.
+- Timetable, homework/assignments, approved resources and submission status.
+- Notices/circulars targeted by audience/class, attachments and expiry dates.
 - Parent-teacher meeting calendar and leave/communication requests.
-- Email/SMS/WhatsApp alerts only through an approved provider, with delivery logs and opt-out/consent handling.
+- Email/SMS/WhatsApp alerts only through an approved provider, with delivery logs and consent handling.
 
 ## Phase 6 — Operations
 
@@ -55,7 +55,7 @@ This project currently uses static HTML, CSS and vanilla JavaScript. The existin
 
 - Attendance trends, class performance, fee collection and operational reports.
 - Export permissions, audit events, database backups and restore drills.
-- Installable Progressive Web App (PWA), performance/accessibility review and staff training.
+- Installable Progressive Web App (PWA), accessibility review and staff training.
 
 ## Baseline security rules
 
@@ -64,10 +64,6 @@ This project currently uses static HTML, CSS and vanilla JavaScript. The existin
 3. Never place a Supabase service-role/secret key in frontend files, Vercel public variables, or Git.
 4. Disable public account registration in production; accounts and roles are provisioned by authorized school staff.
 5. Use least-privilege roles, strong staff passwords and MFA for administrators where available.
-6. Test with separate administrator, teacher, parent and student accounts before any real student information is imported.
-7. Store only necessary child data, obtain school approval for contact/notification workflows, restrict exports and define a retention/deletion policy.
+6. Test with separate admin, finance, teacher, parent and student accounts before real data is imported.
+7. Store only necessary child data, restrict exports and define a retention/deletion policy.
 8. Back up the database and test restores before operational rollout.
-
-## Phase 1 status
-
-The portal and initial profile schema in this branch are a **foundation preview**. The portal remains intentionally disconnected until a school-owned Supabase project is configured and the setup/security checks are completed. Attendance, marks and datesheets are not implemented yet.
