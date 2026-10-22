@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173f35">
+  <meta name="description" content="Secure staff, student and parent portal for Saraswati Senior Secondary School.">
+  <title>School ERP | Saraswati Senior Secondary School</title>
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./config.js"></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="../index.html">
+      <img src="../assets/logo.svg" alt="" width="46" height="46">
+      <span><strong>Saraswati Senior Secondary School</strong><small>Bilaspur · Yamunanagar, Haryana</small></span>
+    </a>
+    <a class="back-link" href="../index.html">← Public website</a>
+  </header>
+
+  <main id="main" class="page-shell">
+    <section class="intro">
+      <span class="eyebrow">SCHOOL ERP · PHASE 1</span>
+      <h1>One school community.<br><em>One secure portal.</em></h1>
+      <p>A single sign-in for school staff, students and parents. Each account will only see the information its approved role is allowed to access.</p>
+      <div class="trust-points">
+        <span><b aria-hidden="true">✓</b> Role-based access</span>
+        <span><b aria-hidden="true">✓</b> School-managed accounts</span>
+        <span><b aria-hidden="true">✓</b> Private records by design</span>
+      </div>
+    </section>
+
+    <section class="auth-card" aria-labelledby="portal-title">
+      <div class="card-mark" aria-hidden="true">S</div>
+      <div id="login-panel">
+        <span class="eyebrow">WELCOME BACK</span>
+        <h2 id="portal-title">Sign in to your portal</h2>
+        <p class="muted">Use the school-issued email and password.</p>
+        <div id="setup-notice" class="notice notice-warn" role="status" hidden>
+          The secure backend has not been configured on this preview. Add the school's Supabase project settings in <code>erp/config.js</code> and apply the SQL setup before enabling sign-in.
+        </div>
+        <form id="login-form">
+          <label for="email">Email address</label>
+          <input id="email" name="email" type="email" autocomplete="username" placeholder="you@school.edu.in" required>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+          <button id="login-button" class="primary-button" type="submit">Sign in securely <span aria-hidden="true">→</span></button>
+          <p id="login-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+        <p class="help-note">Need access? Contact the school office. Public self-registration is not available.</p>
+      </div>
+
+      <div id="dashboard-panel" hidden>
+        <span class="eyebrow">YOUR WORKSPACE</span>
+        <h2 id="welcome-title">Welcome</h2>
+        <p id="role-summary" class="muted"></p>
+        <div id="role-cards" class="role-cards"></div>
+        <div class="notice notice-info">This is the Phase 1 foundation. Attendance, marks, datesheets and other records will appear after their modules are built and tested.</div>
+        <button id="logout-button" class="secondary-button" type="button">Sign out</button>
+        <p id="dashboard-status" class="form-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="security-caption"><span aria-hidden="true">▣</span> Account permissions are checked against school-managed records.</div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© <span data-year>2026</span> Saraswati Senior Secondary School</span>
+    <span>School ERP foundation preview · Do not use for real student data yet</span>
+  </footer>
+</body>
+</html>
