@@ -1,0 +1,26 @@
+name: ERP syntax checks
+
+on:
+  push:
+    branches:
+      - main
+      - feature/erp-phase-1-foundation
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Parse ERP JavaScript as ES modules
+        run: |
+          node --input-type=module --check < erp/app.js
+          node --input-type=module --check < erp/demo-data.js
