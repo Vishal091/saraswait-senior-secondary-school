@@ -41,24 +41,35 @@ const roleMeta = {
 
 const navByRole = {
   admin: [
-    ["overview", "Overview", "⌂"], ["students", "Students", "♧"], ["attendance", "Attendance", "✓"],
-    ["marks", "Exams & marks", "▤"], ["datesheets", "Datesheets", "▦"], ["fees", "Fees & payments", "₹"],
-    ["notices", "Notices", "▧"], ["accounts", "Demo accounts", "♙"]
+    ["overview", "Command center", "⌂"], ["students", "Students", "♧"], ["attendance", "Attendance", "✓"],
+    ["marks", "Exams & marks", "▤"], ["datesheets", "Datesheets", "▦"], ["fees", "Fees & receipts", "₹"],
+    ["notices", "Notices", "▧"], ["approvals", "Approvals", "✓"], ["timetable", "Timetable & calendar", "▦"],
+    ["homework", "Homework centre", "✎"], ["communications", "Messages", "✉"], ["notifications", "Notifications", "•"],
+    ["reports", "Reports & analytics", "▥"], ["admissions", "Admissions", "＋"], ["expenses", "Expenses", "−"],
+    ["operations", "School operations", "⚙"], ["requests", "Requests", "☏"], ["accounts", "Demo accounts", "♙"]
   ],
   finance: [
-    ["overview", "Overview", "⌂"], ["students", "Students", "♧"], ["fees", "Fees & payments", "₹"], ["notices", "Notices", "▧"]
+    ["overview", "Finance desk", "⌂"], ["students", "Students", "♧"], ["fees", "Fees & receipts", "₹"],
+    ["expenses", "Expenses & closing", "−"], ["reports", "Reports & exports", "▥"], ["communications", "Messages", "✉"],
+    ["notifications", "Notifications", "•"], ["notices", "Notices", "▧"]
   ],
   teacher: [
-    ["overview", "Overview", "⌂"], ["students", "My class", "♧"], ["attendance", "Attendance", "✓"],
-    ["marks", "Exams & marks", "▤"], ["datesheets", "Datesheets", "▦"], ["notices", "Notices", "▧"]
+    ["overview", "My teaching day", "⌂"], ["students", "My class", "♧"], ["attendance", "Attendance", "✓"],
+    ["marks", "Exams & marks", "▤"], ["datesheets", "Datesheets", "▦"], ["timetable", "Timetable", "▦"],
+    ["homework", "Homework centre", "✎"], ["communications", "Messages", "✉"], ["requests", "Leave & requests", "☏"],
+    ["notifications", "Notifications", "•"], ["reports", "Class reports", "▥"], ["operations", "School operations", "⚙"], ["notices", "Notices", "▧"]
   ],
   parent: [
-    ["overview", "Overview", "⌂"], ["attendance", "Attendance", "✓"], ["marks", "Marks & results", "▤"],
-    ["datesheets", "Datesheets", "▦"], ["fees", "Fees", "₹"], ["notices", "Notices", "▧"]
+    ["overview", "Family dashboard", "⌂"], ["attendance", "Attendance", "✓"], ["marks", "Marks & results", "▤"],
+    ["datesheets", "Datesheets", "▦"], ["fees", "Fees & receipts", "₹"], ["timetable", "Timetable & calendar", "▦"],
+    ["homework", "Homework & resources", "✎"], ["communications", "Contact school", "✉"], ["requests", "Requests", "☏"],
+    ["notifications", "Notifications", "•"], ["notices", "Notices", "▧"]
   ],
   student: [
-    ["overview", "Overview", "⌂"], ["attendance", "My attendance", "✓"], ["marks", "My marks", "▤"],
-    ["datesheets", "Datesheets", "▦"], ["fees", "My fees", "₹"], ["notices", "Notices", "▧"]
+    ["overview", "My school day", "⌂"], ["attendance", "My attendance", "✓"], ["marks", "My results", "▤"],
+    ["datesheets", "Datesheets", "▦"], ["fees", "My fees & receipts", "₹"], ["timetable", "My timetable", "▦"],
+    ["homework", "Homework & resources", "✎"], ["communications", "Message a teacher", "✉"], ["requests", "Ask the school", "☏"],
+    ["notifications", "Notifications", "•"], ["notices", "Notices", "▧"]
   ]
 };
 
@@ -551,7 +562,17 @@ function renderView() {
     datesheets: renderDatesheets,
     fees: renderFees,
     notices: renderNotices,
-    accounts: renderAccounts
+    accounts: renderAccounts,
+    approvals: renderApprovals,
+    timetable: renderTimetable,
+    homework: renderHomework,
+    communications: renderCommunications,
+    notifications: renderNotifications,
+    requests: renderRequests,
+    reports: renderReports,
+    admissions: renderAdmissions,
+    expenses: renderExpenses,
+    operations: renderOperations
   };
   portalView.innerHTML = (renderers[activeView] || renderOverview)();
 }
@@ -732,6 +753,367 @@ async function resetDemoData() {
   renderView();
   showPortalMessage("Demo data has been reset to the original sample records.", false);
 }
+
+  function extras(data = schoolData) {
+    if (!data) return;
+    for (const key of ["payments","notifications","approvals","timetable","homework","submissions","messages","requests","schoolEvents","admissions","expenses","libraryBooks","libraryLoans","inventory","inventoryMovements","transportRoutes","attendanceHistory","resources"]) {
+      if (!Array.isArray(data[key])) data[key] = [];
+    }
+  }
+
+  function notify(title, body, audience = "All", studentId = null, targetEmail = null) {
+    extras();
+    schoolData.notifications.unshift({id:"NOT-"+Date.now()+"-"+Math.random().toString(36).slice(2,5),title,body,audience,studentId,targetEmail,date:new Date().toISOString(),readBy:[]});
+    schoolData.notifications = schoolData.notifications.slice(0,100);
+  }
+
+  function askApproval(type, title, details, targetType = "generic", targetId = "", payload = null) {
+    extras();
+    const approval = {id:"APR-"+Date.now(),type,title,details,targetType,targetId,payload,status:"Pending",requestedBy:currentUser.fullName,requestedAt:new Date().toISOString(),reviewedBy:"",reviewedAt:""};
+    schoolData.approvals.unshift(approval);
+    notify("Approval required: "+title, details, "admin");
+    return approval;
+  }
+
+  function notifyStudent(studentId, title, body) {
+    const account = DEMO_ACCOUNTS.find(a => a.role === "student" && a.studentId === studentId);
+    notify(title,body,"student",studentId,account?.email || null);
+    notify(title,body,"parent",studentId);
+  }
+
+  function unreadCount() {
+    extras();
+    return schoolData.notifications.filter(n => {
+      const visible = n.audience === "All" || n.audience === currentUser.role || n.targetEmail === currentUser.email || (n.studentId && visibleStudentIds().includes(n.studentId));
+      return visible && !(n.readBy || []).includes(currentUser.email);
+    }).length;
+  }
+
+  function roleNotices() {
+    const allowed = {admin:["All","Principal"],finance:["All","Finance","Finance / families","Parents"],teacher:["All","Teachers"],parent:["All","Parents","Students","Finance / families"],student:["All","Students"]};
+    return (schoolData.notices || []).filter(n => (allowed[currentUser.role] || ["All"]).includes(n.audience));
+  }
+
+  function downloadData(content, type, filename) {
+    const url = URL.createObjectURL(new Blob([content],{type}));
+    const link = document.createElement("a");
+    link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function csvValue(value) { return '"' + String(value ?? "").replace(/"/g,'""') + '"'; }
+
+  function downloadReceipt(paymentId) {
+    const p = schoolData.payments.find(x => x.id === paymentId); if (!p) return;
+    const invoice = schoolData.invoices.find(x => x.id === p.invoiceId);
+    const html = `<!doctype html><html><meta charset="utf-8"><title>Demo receipt</title><body style="font:16px Arial;max-width:660px;margin:40px auto;color:#173f35"><h1>Saraswati Senior Secondary School</h1><p><b>DEMO RECEIPT — NOT VALID FOR ACTUAL PAYMENT</b></p><hr><p>Receipt: ${esc(p.receiptNo)}</p><p>Date: ${esc(formatDate(p.date))}</p><p>Student: ${esc(studentName(p.studentId))}</p><p>Invoice: ${esc(p.invoiceId)}</p><p>Description: ${esc(invoice?.description || "School fee")}</p><h2>Recorded amount: ${esc(currency(p.amount))}</h2><p>Method: ${esc(p.method || "Demo entry")}</p><p>Recorded by: ${esc(p.collectedBy || "Demo Finance")}</p><hr><p>No actual money was processed. This file is a fictional demo receipt.</p></body></html>`;
+    downloadData(html,"text/html;charset=utf-8",p.receiptNo+"-DEMO.html");
+  }
+
+  function renderApprovals() {
+    if (!schoolData || currentUser.role !== "admin") return renderLiveModuleNotice("Approvals");
+    extras();
+    const pending = schoolData.approvals.filter(a => a.status === "Pending");
+    const queue = pending.map(a => `<article class="approval-card"><div class="approval-card-top"><span class="eyebrow">${esc(a.type)}</span>${statusPill(a.status)}</div><h3>${esc(a.title)}</h3><p>${esc(a.details)}</p><small>Requested by ${esc(a.requestedBy)} · ${esc(formatDate(a.requestedAt))}</small><div class="approval-actions"><button type="button" class="primary-button compact" data-action="resolve-approval" data-outcome="Approved" data-id="${esc(a.id)}">Approve</button><button type="button" class="secondary-button" data-action="resolve-approval" data-outcome="Rejected" data-id="${esc(a.id)}">Reject</button></div></article>`).join("");
+    const history = schoolData.approvals.filter(a => a.status !== "Pending").slice(0,15).map(a => `<tr><td><strong>${esc(a.title)}</strong><small>${esc(a.type)}</small></td><td>${esc(a.requestedBy)}</td><td>${statusPill(a.status)}</td><td>${esc(a.reviewedBy || "—")}</td><td>${esc(formatDate(a.reviewedAt || a.requestedAt))}</td></tr>`);
+    return pageHeading("Approvals & publishing","Review results, datesheets, assignments, expenses and school requests before they take effect.")
+      + `<div class="stats-grid">${statCard("Pending approvals",pending.length,"Awaiting a decision","✓")}${statCard("Marks to review",schoolData.marks.filter(m=>m.status==="Pending approval").length,"Hidden from students","▤")}${statCard("Datesheets to review",schoolData.datesheets.filter(s=>s.status==="Pending approval").length,"Not yet published","▦")}${statCard("Expenses to review",schoolData.expenses.filter(e=>e.status==="Pending approval").length,"Finance requests","₹")}</div>`
+      + `<div class="approval-grid">${queue || '<div class="empty-state"><strong>Approval queue is clear</strong>New submissions will appear here.</div>'}</div>`
+      + panel("Decision history",table(["Item","Requested by","Decision","Reviewed by","Date"],history,"No decisions recorded yet."));
+  }
+
+  function renderTimetable() {
+    if (!schoolData) return renderLiveModuleNotice("Timetable & calendar");
+    extras();
+    const role=currentUser.role;
+    const classes = role==="student" ? [studentById(currentUser.studentId)?.className || "X-A"] : role==="parent" ? [...new Set(visibleStudents().map(s=>s.className))] : null;
+    const rows=schoolData.timetable.filter(t=>!classes||classes.includes(t.className)).sort((a,b)=>["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].indexOf(a.day)-["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].indexOf(b.day)).map(t=>`<tr><td>${esc(t.day)}</td><td>${esc(t.time)}</td><td>${esc(t.className)}</td><td><strong>${esc(t.subject)}</strong></td><td>${esc(t.teacher)}</td><td>${esc(t.room||"—")}</td></tr>`);
+    const editor=["admin","teacher"].includes(role)?`<section class="panel"><form id="timetable-form" class="module-form"><h3>Propose timetable change</h3><p>Teacher changes require principal approval.</p><div class="form-grid"><div class="field"><label for="tt-class">Class</label><select id="tt-class" name="className">${DEMO_CLASS_LIST.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div><div class="field"><label for="tt-day">Day</label><select id="tt-day" name="day">${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(d=>`<option>${d}</option>`).join("")}</select></div><div class="field"><label for="tt-period">Period</label><select id="tt-period" name="period">${["1","2","3","4","5","6"].map(p=>`<option>${p}</option>`).join("")}</select></div><div class="field"><label for="tt-time">Time</label><input id="tt-time" name="time" value="09:00–09:45" required></div><div class="field"><label for="tt-subject">Subject</label><input id="tt-subject" name="subject" required maxlength="70"></div><div class="field"><label for="tt-teacher">Teacher</label><input id="tt-teacher" name="teacher" value="${esc(currentUser.fullName)}" required maxlength="70"></div><div class="field"><label for="tt-room">Room</label><input id="tt-room" name="room" value="Room 10"></div></div><button class="primary-button" type="submit">Submit change</button></form></section>`:"";
+    const events=schoolData.schoolEvents.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e=>`<div class="event-row"><div class="event-date"><strong>${esc(new Date(e.date+"T12:00:00").getDate())}</strong><small>${esc(new Date(e.date+"T12:00:00").toLocaleDateString("en-IN",{month:"short"}))}</small></div><div><strong>${esc(e.title)}</strong><small>${esc(e.kind||"School event")} · ${esc(formatDate(e.date))}</small></div></div>`).join("");
+    const eventForm=role==="admin"?`<form id="calendar-form" class="module-form"><h3>Add calendar event</h3><div class="field"><label for="event-title">Event</label><input id="event-title" name="title" required></div><div class="field"><label for="event-date">Date</label><input id="event-date" name="date" type="date" required></div><div class="field"><label for="event-kind">Category</label><select id="event-kind" name="kind"><option>School event</option><option>Holiday</option><option>Exam</option><option>Parent meeting</option></select></div><button class="primary-button" type="submit">Add event</button></form>`:"";
+    return pageHeading("Timetable & school calendar","Weekly class schedule, school events and approved timetable changes.")
+      + `<div class="module-grid"><div>${panel("Weekly timetable",table(["Day","Time","Class","Subject","Teacher","Room"],rows,"No schedule rows available."))}${panel("Upcoming dates",`<div class="event-list">${events||'<div class="empty-state">No events have been added.</div>'}</div>`)}</div><div>${editor}${eventForm}</div></div>`;
+  }
+
+  function renderHomework() {
+    if (!schoolData) return renderLiveModuleNotice("Homework");
+    extras();
+    const role=currentUser.role;
+    const studentClass=studentById(currentUser.studentId)?.className || "X-A";
+    const classes=role==="parent"?[...new Set(visibleStudents().map(s=>s.className))]:[studentClass];
+    const tasks=schoolData.homework.filter(h=>(!["parent","student"].includes(role)||h.status==="Published")&&(!["parent","student"].includes(role)||classes.includes(h.className))).sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
+    const editor=["admin","teacher"].includes(role)?`<section class="panel"><form id="homework-form" class="module-form"><h3>Create assignment</h3><p>Teacher-created assignments are held for principal approval.</p><div class="field"><label for="hw-title">Title</label><input id="hw-title" name="title" required maxlength="100"></div><div class="form-grid"><div class="field"><label for="hw-class">Class</label><select id="hw-class" name="className">${DEMO_CLASS_LIST.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div><div class="field"><label for="hw-subject">Subject</label><select id="hw-subject" name="subject">${["English","Mathematics","Science","Social Science","Hindi"].map(s=>`<option>${s}</option>`).join("")}</select></div><div class="field"><label for="hw-due">Due date</label><input id="hw-due" name="dueDate" type="date" value="2026-10-30" required></div><div class="field field-full"><label for="hw-description">Instructions</label><textarea id="hw-description" name="description" required maxlength="800" rows="3"></textarea></div></div><button class="primary-button" type="submit">Submit assignment</button></form></section>`:"";
+    const cards=tasks.map(h=>{
+      const submission=schoolData.submissions.find(s=>s.homeworkId===h.id&&s.studentId===currentUser.studentId);
+      const allSubmissions=schoolData.submissions.filter(s=>s.homeworkId===h.id);
+      let area="";
+      if(role==="student") area=submission?`<div class="submission-meta">${statusPill(submission.status)}<p>${esc(submission.text)}</p>${submission.feedback?`<small>Teacher feedback: ${esc(submission.feedback)}</small>`:""}</div>`:`<form class="module-form homework-submit-form" data-homework-id="${esc(h.id)}"><div class="field"><label for="sub-${esc(h.id)}">Your answer</label><textarea id="sub-${esc(h.id)}" name="submission" required maxlength="1200" rows="2"></textarea></div><button class="secondary-button" type="submit">Submit work</button></form>`;
+      else if(["teacher","admin"].includes(role)) area=`<div class="submission-meta"><strong>${allSubmissions.length} submission(s)</strong>${allSubmissions.map(s=>`<div class="submission-row"><span><strong>${esc(studentName(s.studentId))}</strong><small>${esc(s.text)}</small></span>${s.status==="Submitted"?`<button class="inline-button" data-action="review-submission" data-id="${esc(s.id)}" type="button">Review</button>`:statusPill(s.status)}</div>`).join("")||'<p class="muted">No work submitted yet.</p>'}</div>`;
+      else area=`<div class="submission-meta">${allSubmissions.filter(s=>visibleStudentIds().includes(s.studentId)).length} submission(s) from linked children.</div>`;
+      return `<article class="homework-card"><div class="homework-card-head"><div><span class="eyebrow">${esc(h.subject)} · ${esc(h.className)}</span><h3>${esc(h.title)}</h3></div>${statusPill(h.status)}</div><p>${esc(h.description)}</p><div class="homework-meta"><span>Due ${esc(formatDate(h.dueDate))}</span><span>By ${esc(h.createdBy||"Demo teacher")}</span></div>${area}</article>`;
+    }).join("");
+    const resources=(schoolData.resources||[]).map(r=>`<tr><td><strong>${esc(r.title)}</strong><small>${esc(r.subject)}</small></td><td>${esc(r.description)}</td><td><button class="inline-button" type="button" data-action="download-resource" data-id="${esc(r.id)}">Download note</button></td></tr>`);
+    return pageHeading("Homework & learning centre","Assignments, deadlines, submissions and reusable study notes.")
+      + `<div class="module-grid"><div>${cards||'<div class="empty-state">No assignments have been published for this class.</div>'}${panel("Study resources",table(["Resource","Description","Action"],resources,"No sample resources."))}</div><div>${editor}${panel("How it works",'<div class="panel-body"><p class="muted">Student submissions stay in the sample browser dataset. Teachers can review them and add feedback. No actual file is uploaded to a server.</p></div>')}</div></div>`;
+  }
+
+  function renderCommunications() {
+    if(!schoolData)return renderLiveModuleNotice("Messages");
+    extras();
+    const role=currentUser.role;
+    const messages=schoolData.messages.filter(m=>(m.recipientRole==="All"||m.recipientRole===role||m.senderEmail===currentUser.email)&&(!m.studentId||visibleStudentIds().includes(m.studentId)||role==="admin")).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    const recipients=role==="admin"?[["All","All school users"],["teacher","Teachers"],["parent","Parents"],["student","Students"],["finance","Finance"]]:role==="finance"?[["admin","Principal"],["parent","Parents"]]:role==="teacher"?[["admin","Principal"],["parent","Parents"],["student","Students"]]:role==="parent"?[["teacher","Class teacher"],["admin","Principal"]]:[["teacher","Class teacher"],["admin","Principal"]];
+    const options=recipients.map(([v,l])=>`<option value="${v}">${l}</option>`).join("");
+    const studentOptions=["admin","finance","teacher","parent"].includes(role)?`<div class="field"><label for="message-student">Linked student (optional)</label><select id="message-student" name="studentId"><option value="">None</option>${visibleStudents().map(s=>`<option value="${esc(s.id)}">${esc(s.fullName)}</option>`).join("")}</select></div>`:"";
+    const form=`<section class="panel"><form id="communication-form" class="module-form"><h3>Compose message</h3><p>Demo messages do not leave this browser.</p><div class="field"><label for="message-to">Recipient</label><select id="message-to" name="recipientRole">${options}</select></div>${studentOptions}<div class="field"><label for="message-subject">Subject</label><input id="message-subject" name="subject" required maxlength="100"></div><div class="field"><label for="message-body">Message</label><textarea id="message-body" name="body" required rows="4" maxlength="1200"></textarea></div><button class="primary-button" type="submit">Send demo message</button></form></section>`;
+    const rows=messages.map(m=>`<article class="message-card"><div class="message-card-head"><div><strong>${esc(m.subject)}</strong><small>${esc(m.senderName)} · ${esc(roleMeta[m.senderRole]?.short||m.senderRole)}</small></div><time>${esc(formatDate(m.date))}</time></div><p>${esc(m.body)}</p><small>To: ${esc(m.recipientRole==="All"?"All users":roleMeta[m.recipientRole]?.short||m.recipientRole)}${m.studentId?" · "+esc(studentName(m.studentId)):""}</small></article>`).join("");
+    return pageHeading("Messages & communication","A role-aware inbox for parent questions and school updates.")
+      + `<div class="module-grid"><div>${panel("Inbox & sent",`<div class="message-list">${rows||'<div class="empty-state">No messages for this account yet.</div>'}</div>`)}</div><div>${form}${panel("Demo boundary",'<div class="panel-body"><p class="muted">No SMS, email or WhatsApp is actually sent. Live messaging needs secure recipient checks and approved provider integration.</p></div>')}</div></div>`;
+  }
+
+  function renderNotifications() {
+    if(!schoolData)return renderLiveModuleNotice("Notifications");
+    extras();
+    const rows=schoolData.notifications.filter(n=>n.audience==="All"||n.audience===currentUser.role||n.targetEmail===currentUser.email||(n.studentId&&visibleStudentIds().includes(n.studentId))).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(n=>{
+      const read=(n.readBy||[]).includes(currentUser.email);
+      return `<article class="notification-card ${read?"is-read":""}"><div><div class="notification-title-row"><strong>${esc(n.title)}</strong>${statusPill(read?"Read":"Unread")}</div><p>${esc(n.body)}</p><small>${esc(formatDate(n.date))}</small></div>${read?"":`<button class="inline-button" data-action="read-notification" data-id="${esc(n.id)}" type="button">Mark read</button>`}</article>`;
+    }).join("");
+    return pageHeading("Notification centre", "Attendance alerts, new messages, due dates and approval updates.")
+      + `<div class="page-tools"><span>${unreadCount()} unread alert(s)</span><button class="secondary-button" type="button" data-action="read-all-notifications">Mark all read</button></div>`
+      + panel("Recent notifications",`<div class="notification-list">${rows||'<div class="empty-state">No notifications for this account.</div>'}</div>`);
+  }
+
+  function renderRequests() {
+    if(!schoolData)return renderLiveModuleNotice("Requests");
+    extras();
+    const role=currentUser.role;
+    const rows=schoolData.requests.filter(r=>role==="admin"||(role==="teacher"&&(r.studentId?studentById(r.studentId)?.className==="X-A":r.requestedRole==="teacher"))||(role==="parent"&&((r.studentId&&visibleStudentIds().includes(r.studentId))||r.requestedByEmail===currentUser.email))||(role==="student"&&(r.studentId===currentUser.studentId||r.requestedByEmail===currentUser.email))).sort((a,b)=>String(b.date).localeCompare(String(a.date))).map(r=>`<article class="request-card"><div class="request-card-head"><div><span class="eyebrow">${esc(r.type)}</span><h3>${esc(r.title||r.type)}</h3></div>${statusPill(r.status)}</div><p>${esc(r.details)}</p><small>${r.studentId?esc(studentName(r.studentId))+" · ":""}${esc(r.requestedBy)} · ${esc(formatDate(r.date))}</small>${["admin","teacher"].includes(role)&&r.status==="Pending"?`<div class="approval-actions"><button class="inline-button" data-action="resolve-request" data-outcome="Approved" data-id="${esc(r.id)}" type="button">Approve / resolve</button><button class="inline-button danger" data-action="resolve-request" data-outcome="Rejected" data-id="${esc(r.id)}" type="button">Decline</button></div>`:""}</article>`).join("");
+    let form="";
+    if(["parent","student"].includes(role)){
+      const childOptions=role==="parent"?visibleStudents().map(s=>`<option value="${esc(s.id)}">${esc(s.fullName)}</option>`).join(""):`<option value="${esc(currentUser.studentId)}">${esc(studentName(currentUser.studentId))}</option>`;
+      form=`<section class="panel"><form id="request-form" class="module-form"><h3>Ask the school</h3><div class="field"><label for="req-type">Request type</label><select name="requestType" id="req-type"><option>Absence explanation</option><option>Attendance correction</option><option>Record correction</option><option>Parent-teacher meeting</option><option>Certificate request</option></select></div><div class="field"><label for="req-student">Student</label><select name="studentId" id="req-student">${childOptions}</select></div><div class="field"><label for="req-details">Details</label><textarea name="details" id="req-details" rows="4" required maxlength="600"></textarea></div><button class="primary-button" type="submit">Send request</button></form></section>`;
+    } else if(role==="teacher"){
+      form=`<section class="panel"><form id="request-form" class="module-form"><h3>Staff leave / support request</h3><div class="field"><label for="req-type">Request type</label><select id="req-type" name="requestType"><option>Staff leave request</option><option>Substitute teacher request</option><option>Teaching resource request</option></select></div><div class="field"><label for="req-date">Relevant date</label><input id="req-date" name="date" type="date" required></div><div class="field"><label for="req-details">Details</label><textarea id="req-details" name="details" rows="3" required maxlength="600"></textarea></div><button class="primary-button" type="submit">Submit request</button></form></section>`;
+    }
+    return pageHeading("Requests & follow-up","Track absence explanations, corrections, meetings and staff support.")
+      + `<div class="module-grid"><div>${panel("Request register",`<div class="request-list">${rows||'<div class="empty-state">No requests found for this account.</div>'}</div>`)}</div><div>${form}${panel("Workflow",'<div class="panel-body"><p class="muted">Student and parent requests are routed to school review. Teacher leave and timetable changes require approval in the demo. Real requests will need backend access control.</p></div>')}</div></div>`;
+  }
+
+  function renderReports() {
+    if(!schoolData)return renderLiveModuleNotice("Reports");
+    extras();
+    const role=currentUser.role;
+    const students=visibleStudents(), ids=new Set(students.map(s=>s.id));
+    const attendance=schoolData.attendance.filter(r=>ids.has(r.studentId));
+    const marks=visibleMarks().filter(r=>r.status==="Published");
+    const invoices=visibleInvoices();
+    const attPercent=attendance.length?Math.round(attendance.filter(r=>["Present","Late"].includes(r.status)).length/attendance.length*100):0;
+    const paid=schoolData.payments.filter(p=>ids.has(p.studentId)).reduce((sum,p)=>sum+Number(p.amount||0),0);
+    const due=invoices.reduce((sum,i)=>sum+totalDue(i),0);
+    const canFinance=["admin","finance"].includes(role);
+    const exports=[["attendance","Attendance register"],["marks","Published results"],...(canFinance?[["fees","Fee ledger"],["payments","Receipts / collections"],["expenses","Expense register"]]:[]),...(role==="admin"?[["audit","Audit trail"],["admissions","Admissions"]]:[])].map(([id,label])=>`<button class="report-download" data-action="export-report" data-report="${id}" type="button"><span>↓</span><strong>${label} CSV</strong><small>Export current demo records</small></button>`).join("");
+    const progress=students.map(s=>`<tr><td><strong>${esc(s.fullName)}</strong></td><td>${esc(s.className)}</td><td>${attendancePercent(s.id)}%</td><td>${averageMarks(s.id)===null?"—":averageMarks(s.id)+"%"}</td><td>${canFinance?esc(currency(studentOutstanding(s.id))):"Restricted"}</td></tr>`);
+    const flags=students.filter(s=>attendancePercent(s.id)<85||(averageMarks(s.id)!==null&&averageMarks(s.id)<60)||studentOutstanding(s.id)>0).map(s=>`<div class="task-row"><div><strong>${esc(s.fullName)}</strong><small>${attendancePercent(s.id)<85?"Attendance below 85% · ":""}${averageMarks(s.id)!==null&&averageMarks(s.id)<60?"Academic follow-up · ":""}${studentOutstanding(s.id)>0?"Fee balance outstanding":""}</small></div><button class="inline-button" type="button" data-nav="${role==="admin"?"communications":"requests"}">Follow up</button></div>`).join("");
+    return pageHeading("Reports & analytics","Role-scoped exports and early-warning signals that suggest follow-up—not punishment.")
+      + `<div class="stats-grid">${statCard("Attendance",attPercent+"%","Visible demo records","✓")}${statCard("Students",students.length,"Visible roster","♧")}${statCard("Published marks",marks.length,"Reader-visible scores","▤")}${statCard("Outstanding",canFinance?currency(due):"Restricted",canFinance?"Open invoice balances":"Finance-only figure","₹")}</div>`
+      + `<div class="module-grid"><div>${panel("Student progress snapshot",table(["Student","Class","Attendance","Average marks","Fee balance"],progress))}${panel("Early-warning follow-up",`<div class="panel-body">${flags||'<p class="muted">No follow-up flags in this demo sample.</p>'}</div>`)}</div><div>${panel("Download reports",`<div class="report-download-grid">${exports}</div>`)}${role==="admin"?panel("Recent audit trail",table(["Date","Actor","Activity"],schoolData.audit.slice(0,8).map(a=>`<tr><td>${esc(formatDate(a.date))}</td><td>${esc(a.actor)}</td><td>${esc(a.message)}</td></tr>`))):""}</div></div>`;
+  }
+
+  function renderAdmissions() {
+    if(!schoolData||currentUser.role!=="admin")return renderLiveModuleNotice("Admissions");
+    extras();
+    const form=`<section class="panel"><form id="admission-form" class="module-form"><h3>Record an admission enquiry</h3><div class="field"><label for="adm-name">Applicant name</label><input id="adm-name" name="applicant" required maxlength="90"></div><div class="form-grid"><div class="field"><label for="adm-class">Requested class</label><select id="adm-class" name="className">${["Pre-primary","I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"].map(c=>`<option>${c}</option>`).join("")}</select></div><div class="field"><label for="adm-contact">Parent contact label</label><input id="adm-contact" name="contact" maxlength="80"></div><div class="field"><label for="adm-source">Source</label><select id="adm-source" name="source"><option>Website</option><option>School office</option><option>Referral</option><option>Walk-in</option></select></div><div class="field field-full"><label for="adm-notes">Follow-up notes</label><textarea id="adm-notes" name="notes" rows="2" maxlength="500"></textarea></div></div><button class="primary-button" type="submit">Add enquiry</button></form></section>`;
+    const rows=schoolData.admissions.map(a=>`<tr><td><strong>${esc(a.applicant)}</strong><small>${esc(a.id)}</small></td><td>${esc(a.className)}</td><td>${esc(a.contact||"—")}</td><td>${esc(a.source||"Website")}</td><td>${statusPill(a.status)}</td><td><button class="inline-button" type="button" data-action="advance-admission" data-id="${esc(a.id)}">Update stage</button></td></tr>`);
+    return pageHeading("Admissions enquiry pipeline","Capture enquiries and follow up until a decision is recorded.")
+      + `<div class="stats-grid">${statCard("New",schoolData.admissions.filter(a=>a.status==="New").length,"Needs first contact","＋")}${statCard("In follow-up",schoolData.admissions.filter(a=>["Contacted","Visit scheduled"].includes(a.status)).length,"Next action needed","↗")}${statCard("Admitted",schoolData.admissions.filter(a=>a.status==="Admitted").length,"Demo pipeline","✓")}${statCard("Total",schoolData.admissions.length,"Fictional applications","▤")}</div>`
+      + `<div class="module-grid"><div>${panel("Enquiries",table(["Applicant","Class","Contact","Source","Stage","Action"],rows))}</div><div>${form}${panel("Next rollout",'<div class="panel-body"><p class="muted">Live admissions can later add secure document checklists, acknowledgement messages and class seat availability.</p></div>')}</div></div>`;
+  }
+
+  function renderExpenses() {
+    if(!schoolData)return renderLiveModuleNotice("Expenses");
+    extras();
+    const role=currentUser.role, canCreate=["admin","finance"].includes(role);
+    const rows=schoolData.expenses.map(e=>`<tr><td><strong>${esc(e.title)}</strong><small>${esc(e.id)} · ${esc(e.category)}</small></td><td>${esc(formatDate(e.date))}</td><td>${esc(currency(e.amount))}</td><td>${esc(e.submittedBy||"Finance demo")}</td><td>${statusPill(e.status)}</td></tr>`);
+    const form=canCreate?`<section class="panel"><form id="expense-form" class="module-form"><h3>Record school expense</h3><p>Submitted expenses enter the principal's approval queue.</p><div class="field"><label for="exp-title">Description</label><input id="exp-title" name="title" required maxlength="100"></div><div class="form-grid"><div class="field"><label for="exp-category">Category</label><select id="exp-category" name="category"><option>Learning materials</option><option>Maintenance</option><option>Transport</option><option>Utilities</option><option>Events</option><option>Other</option></select></div><div class="field"><label for="exp-amount">Amount (₹)</label><input id="exp-amount" name="amount" type="number" min="1" max="1000000" value="2500" required></div><div class="field"><label for="exp-date">Date</label><input id="exp-date" name="date" type="date" value="${esc(todayISO())}" required></div></div><button class="primary-button" type="submit">Submit for approval</button></form></section>`:"";
+    const receipts=schoolData.payments.reduce((s,p)=>s+Number(p.amount||0),0), spend=schoolData.expenses.filter(e=>e.status==="Approved").reduce((s,e)=>s+Number(e.amount||0),0);
+    return pageHeading("Expenses & reconciliation","Maintain a demo expense register and compare it with the sample receipt ledger.")
+      + `<div class="stats-grid">${statCard("Recorded collections",currency(receipts),"Receipt ledger","₹")}${statCard("Approved expenses",currency(spend),"Approved demo rows","−")}${statCard("Pending expenses",schoolData.expenses.filter(e=>e.status==="Pending approval").length,"Needs principal review","✓")}${statCard("Bank connection","Off","No real reconciliation","⊘")}</div>`
+      + `<div class="module-grid"><div>${panel("Expense register",table(["Expense","Date","Amount","Submitted by","Status"],rows))}${panel("Daily closing",`<div class="panel-body"><p class="muted">Receipt total: <strong>${esc(currency(receipts))}</strong> · Approved demo expenses: <strong>${esc(currency(spend))}</strong></p><p class="muted">A real bank/UPI reconciliation integration is not connected.</p><button class="secondary-button" data-action="export-report" data-report="payments" type="button">Export collections</button> <button class="secondary-button" data-action="export-report" data-report="expenses" type="button">Export expenses</button></div>`)}</div><div>${form}${panel("Finance controls",'<div class="panel-body"><p class="muted">Production must use immutable transactions, separate refund permissions and tested backups.</p></div>')}</div></div>`;
+  }
+
+  function renderOperations() {
+    if(!schoolData)return renderLiveModuleNotice("School operations");
+    extras();
+    const role=currentUser.role;
+    const books=schoolData.libraryBooks, loans=schoolData.libraryLoans, inv=schoolData.inventory;
+    const bookRows=books.map(b=>`<tr><td><strong>${esc(b.title)}</strong><small>${esc(b.subject)}</small></td><td>${esc(b.total)}</td><td>${esc(b.available)}</td><td>${["admin","teacher"].includes(role)&&b.available>0?`<button class="inline-button" data-action="checkout-book" data-id="${esc(b.id)}" type="button">Issue</button>`:"—"}</td></tr>`);
+    const loanRows=loans.map(l=>`<tr><td>${esc(studentName(l.studentId))}</td><td>${esc(books.find(b=>b.id===l.bookId)?.title||l.bookId)}</td><td>${esc(formatDate(l.dueDate))}</td><td>${statusPill(l.status)}</td><td>${l.status==="Borrowed"&&["admin","teacher"].includes(role)?`<button class="inline-button" data-action="return-book" data-id="${esc(l.id)}" type="button">Return</button>`:"—"}</td></tr>`);
+    const invRows=inv.map(i=>`<tr><td><strong>${esc(i.name)}</strong><small>${esc(i.category)}</small></td><td>${esc(i.quantity)} ${esc(i.unit||"")}</td><td>${esc(i.location||"—")}</td><td>${["admin","teacher"].includes(role)?`<button class="inline-button" data-action="issue-inventory" data-id="${esc(i.id)}" type="button">Issue</button>`:"—"}</td></tr>`);
+    const routes=(schoolData.transportRoutes||[]).map(r=>`<tr><td><strong>${esc(r.name)}</strong></td><td>${esc(r.vehicle)}</td><td>${esc(r.stops.join(" → "))}</td><td>${esc(r.time)}</td></tr>`);
+    const events=schoolData.schoolEvents.map(e=>`<tr><td>${esc(formatDate(e.date))}</td><td>${esc(e.title)}</td><td>${esc(e.kind||"Event")}</td><td>${esc(e.audience||"All")}</td></tr>`);
+    return pageHeading("School operations","Library lending, inventory, transport routes and event calendar.")
+      + `<div class="operation-grid"><article class="operation-tile"><span class="operation-icon">▦</span><div><strong>Library</strong><p>Borrowing and return tracking.</p><small>${books.reduce((s,b)=>s+Number(b.available||0),0)} sample copies available</small></div></article><article class="operation-tile"><span class="operation-icon">🚌</span><div><strong>Transport</strong><p>Route and stop directory.</p><small>${(schoolData.transportRoutes||[]).length} sample routes</small></div></article><article class="operation-tile"><span class="operation-icon">▤</span><div><strong>Inventory</strong><p>Classroom equipment and consumables.</p><small>${inv.length} tracked sample items</small></div></article><article class="operation-tile"><span class="operation-icon">♙</span><div><strong>Staff leave</strong><p>Requests use the approval process.</p><small>${schoolData.requests.filter(r=>r.type.includes("leave")||r.type.includes("Substitute")).length} request(s)</small></div></article><article class="operation-tile"><span class="operation-icon">₹</span><div><strong>Payroll & payslips</strong><p>Planned for a later secure finance phase.</p><small>Not enabled in demo</small></div></article><article class="operation-tile"><span class="operation-icon">▣</span><div><strong>Certificates</strong><p>Bonafide / transfer / character requests.</p><small>Register in Requests</small></div></article></div>`
+      + `<div class="module-grid"><div>${panel("Library catalogue",table(["Book","Total","Available","Action"],bookRows))}${panel("Active loans",table(["Student","Book","Due","Status","Action"],loanRows))}${panel("Inventory register",table(["Item","Quantity","Location","Action"],invRows))}</div><div>${panel("Transport routes",table(["Route","Vehicle","Stops","Timing"],routes))}${panel("School calendar",table(["Date","Event","Category","Audience"],events))}${panel("Staff support",`<div class="panel-body"><p class="muted">Staff leave, substitute cover and teaching support requests are tracked in the request register.</p><button type="button" class="secondary-button" data-nav="requests">Open requests →</button></div>`)}</div></div>`;
+  }
+
+  function resolveApproval(id, outcome) {
+    if(currentUser.role!=="admin")return showPortalMessage("Only the principal demo account can resolve approvals.",true);
+    const a=schoolData.approvals.find(x=>x.id===id&&x.status==="Pending"); if(!a)return;
+    const ok=outcome==="Approved"; a.status=outcome; a.reviewedBy=currentUser.fullName; a.reviewedAt=new Date().toISOString();
+    if(a.targetType==="mark"){const m=schoolData.marks.find(x=>x.id===a.targetId);if(m){m.status=ok?"Published":"Rejected";notifyStudent(m.studentId,ok?"Results published":"Results not published",`${m.subject} result status: ${m.status}.`);}}
+    if(a.targetType==="datesheet"){const s=schoolData.datesheets.find(x=>x.id===a.targetId);if(s)s.status=ok?"Published":"Rejected";}
+    if(a.targetType==="homework"){const h=schoolData.homework.find(x=>x.id===a.targetId);if(h){h.status=ok?"Published":"Rejected";if(ok)notify("New homework: "+h.title,`Due ${formatDate(h.dueDate)}.`,"student");}}
+    if(a.targetType==="expense"){const e=schoolData.expenses.find(x=>x.id===a.targetId);if(e)e.status=ok?"Approved":"Rejected";}
+    if(a.targetType==="request"){const r=schoolData.requests.find(x=>x.id===a.targetId);if(r)r.status=ok?"Approved":"Declined";}
+    if(a.targetType==="timetable"&&ok&&a.payload){const t={...a.payload,id:"TT-"+Date.now()};const i=schoolData.timetable.findIndex(x=>x.className===t.className&&x.day===t.day&&String(x.period)===String(t.period));if(i>=0)schoolData.timetable[i]=t;else schoolData.timetable.push(t);}
+    recordAudit(`${outcome} approval: ${a.title}`); persistDemoData(); renderView();
+    showPortalMessage(`${a.title} — ${outcome.toLowerCase()} in the demo.`,false);
+  }
+
+  function submitHomework(form) {
+    const v=new FormData(form), title=String(v.get("title")||"").trim(), desc=String(v.get("description")||"").trim(), due=String(v.get("dueDate")||"");
+    if(!title||!desc||!due)return showPortalMessage("Complete all assignment fields.",true);
+    const h={id:"HW-"+Date.now(),title,className:String(v.get("className")||"X-A"),subject:String(v.get("subject")||"English"),dueDate:due,description:desc,createdBy:currentUser.fullName,status:currentUser.role==="admin"?"Published":"Pending approval"};
+    schoolData.homework.unshift(h);
+    if(h.status==="Pending approval")askApproval("Homework publication","Publish assignment: "+title,`${h.className} · ${h.subject} · due ${formatDate(due)}.`,"homework",h.id);
+    else notify("New homework: "+title,`Due ${formatDate(due)}.`,"student");
+    recordAudit("Created assignment "+title);persistDemoData();renderView();showPortalMessage(h.status==="Published"?"Assignment published.":"Assignment sent for principal approval.",false);
+  }
+
+  function submitWork(form) {
+    const task=schoolData.homework.find(x=>x.id===form.dataset.homeworkId&&x.status==="Published");
+    const text=String(new FormData(form).get("submission")||"").trim();
+    if(currentUser.role!=="student"||!task||!text)return showPortalMessage("Enter a valid submission.",true);
+    if(schoolData.submissions.some(x=>x.homeworkId===task.id&&x.studentId===currentUser.studentId))return showPortalMessage("You have already submitted this demo assignment.",true);
+    schoolData.submissions.unshift({id:"SUB-"+Date.now(),homeworkId:task.id,studentId:currentUser.studentId,text,status:"Submitted",feedback:"",submittedAt:new Date().toISOString()});
+    notify("Homework submitted",`${studentName(currentUser.studentId)} submitted ${task.title}.`,"teacher");recordAudit("Submitted homework "+task.title);persistDemoData();renderView();showPortalMessage("Work submitted to the demo teacher workspace.",false);
+  }
+
+  function submitMessage(form) {
+    const v=new FormData(form), to=String(v.get("recipientRole")||"admin"), subject=String(v.get("subject")||"").trim(), body=String(v.get("body")||"").trim(), studentId=String(v.get("studentId")||"")||null;
+    const allowed={admin:["All","teacher","parent","student","finance"],finance:["admin","parent"],teacher:["admin","parent","student"],parent:["teacher","admin"],student:["teacher","admin"]};
+    if(!allowed[currentUser.role]?.includes(to)||!subject||!body)return showPortalMessage("Check the recipient, subject and message.",true);
+    schoolData.messages.unshift({id:"MSG-"+Date.now(),senderName:currentUser.fullName,senderRole:currentUser.role,senderEmail:currentUser.email,recipientRole:to,studentId,subject:subject.slice(0,100),body:body.slice(0,1200),date:new Date().toISOString()});
+    notify("New message: "+subject,`From ${currentUser.fullName}: ${body.slice(0,160)}`,to,studentId);
+    recordAudit("Sent demo message "+subject);persistDemoData();renderView();showPortalMessage("Message saved in the demo inbox; nothing was sent externally.",false);
+  }
+
+  function submitRequest(form) {
+    const v=new FormData(form), type=String(v.get("requestType")||"School request"), details=String(v.get("details")||"").trim(), date=String(v.get("date")||""), studentId=String(v.get("studentId")||(currentUser.role==="student"?currentUser.studentId:""))||null;
+    if(!details)return showPortalMessage("Add details to your request.",true);
+    if(["student","parent"].includes(currentUser.role)&&(!studentId||!visibleStudentIds().includes(studentId)))return showPortalMessage("Choose a linked student.",true);
+    const r={id:"REQ-"+Date.now(),type,title:type,details:details.slice(0,600),studentId,date:new Date().toISOString(),relevantDate:date,status:"Pending",requestedBy:currentUser.fullName,requestedByEmail:currentUser.email,requestedRole:currentUser.role};
+    schoolData.requests.unshift(r);askApproval("School request","Review "+type+(studentId?" · "+studentName(studentId):""),details,"request",r.id);
+    notify("Request received",`Your ${type.toLowerCase()} is awaiting school review.`,"All",studentId,currentUser.email);recordAudit("Submitted request "+type);persistDemoData();renderView();showPortalMessage("Request saved and queued for school review.",false);
+  }
+
+  function submitTimetableChange(form) {
+    const v=new FormData(form), payload={className:String(v.get("className")||"X-A"),day:String(v.get("day")||"Monday"),period:String(v.get("period")||"1"),time:String(v.get("time")||""),subject:String(v.get("subject")||"").trim(),teacher:String(v.get("teacher")||"").trim(),room:String(v.get("room")||"").trim()};
+    if(!payload.subject||!payload.time||!payload.teacher)return showPortalMessage("Complete the timetable change.",true);
+    askApproval("Timetable change",`Change ${payload.className} timetable · ${payload.day} P${payload.period}`,`${payload.subject} · ${payload.time} · ${payload.teacher}.`,"timetable","",payload);
+    recordAudit("Proposed timetable change");persistDemoData();renderView();showPortalMessage("Timetable change is pending principal approval.",false);
+  }
+
+  function submitExpense(form) {
+    const v=new FormData(form), title=String(v.get("title")||"").trim(), amount=Number(v.get("amount")), date=String(v.get("date")||todayISO()), category=String(v.get("category")||"Other");
+    if(!title||!Number.isFinite(amount)||amount<=0||amount>1000000)return showPortalMessage("Enter a valid expense.",true);
+    const e={id:"EXP-"+Date.now(),title,category,amount,date,status:"Pending approval",submittedBy:currentUser.fullName};
+    schoolData.expenses.unshift(e);askApproval("Expense approval","Approve expense: "+title,`${currency(amount)} · ${category} · ${formatDate(date)}.`,"expense",e.id);
+    recordAudit("Submitted expense "+title);persistDemoData();renderView();showPortalMessage("Expense saved and sent to principal approval.",false);
+  }
+
+  function submitAdmission(form) {
+    const v=new FormData(form), applicant=String(v.get("applicant")||"").trim();if(!applicant)return showPortalMessage("Enter the applicant name.",true);
+    const a={id:"ADM-"+Date.now(),applicant,className:String(v.get("className")||"I"),contact:String(v.get("contact")||""),source:String(v.get("source")||"Website"),notes:String(v.get("notes")||""),status:"New",createdAt:new Date().toISOString()};
+    schoolData.admissions.unshift(a);notify("New admission enquiry",`${applicant} · Class ${a.className}`,"admin");recordAudit("Added admission enquiry "+a.id);persistDemoData();renderView();showPortalMessage("Enquiry added to the demo pipeline.",false);
+  }
+
+  function submitCalendar(form) {
+    const v=new FormData(form), title=String(v.get("title")||"").trim(), date=String(v.get("date")||"");if(!title||!date)return showPortalMessage("Enter event details.",true);
+    schoolData.schoolEvents.push({id:"EVT-"+Date.now(),title,date,kind:String(v.get("kind")||"School event"),audience:"All"});notify("School calendar updated",`${title} · ${formatDate(date)}`,"All");recordAudit("Added calendar event "+title);persistDemoData();renderView();showPortalMessage("Demo event added to the calendar.",false);
+  }
+
+  function submitPayment(invoiceId) {
+    if(!["admin","finance"].includes(currentUser.role))return;
+    const invoice=schoolData.invoices.find(i=>i.id===invoiceId);if(!invoice)return;
+    const balance=totalDue(invoice);if(balance<=0)return showPortalMessage("No balance remains on this invoice.",true);
+    const input=window.prompt(`Fictional demo payment only. Remaining balance ${currency(balance)}. Enter amount in ₹:`,String(balance));if(input===null)return;
+    const amount=Number(input);if(!Number.isFinite(amount)||amount<=0||amount>balance)return showPortalMessage("Enter an amount greater than zero and no greater than the balance.",true);
+    invoice.paidAmount=Number(invoice.paidAmount||0)+amount;invoice.status=invoice.paidAmount>=invoice.amount?"Paid":"Partial";
+    const p={id:"PAY-"+Date.now(),receiptNo:"DEMO-RCP-"+String(Date.now()).slice(-8),invoiceId:invoice.id,studentId:invoice.studentId,amount,date:new Date().toISOString(),method:"Demo manual entry",collectedBy:currentUser.fullName};
+    schoolData.payments.unshift(p);notify("Demo fee receipt recorded",`${currency(amount)} recorded for invoice ${invoice.id}. Receipt ${p.receiptNo}. No actual payment occurred.`,"parent",invoice.studentId);recordAudit(`Recorded ${currency(amount)} against ${invoice.id}`);persistDemoData();renderView();showPortalMessage("Demo payment recorded. Receipt "+p.receiptNo+" is available below.",false);
+  }
+
+  function exportReport(report) {
+    const ids=new Set(visibleStudents().map(s=>s.id));let rows=[["Saraswati School ERP Demo","Fictional sample records"],["Generated",new Date().toISOString()],[]];
+    if(report==="attendance")rows.push(["Student ID","Student","Class","Date","Status","Marked by"],...schoolData.attendance.filter(a=>ids.has(a.studentId)).map(a=>[a.studentId,studentName(a.studentId),studentById(a.studentId)?.className,a.date,a.status,a.markedBy]));
+    else if(report==="marks")rows.push(["Student ID","Student","Exam","Subject","Score","Max","Status"],...visibleMarks().filter(m=>m.status==="Published").map(m=>[m.studentId,studentName(m.studentId),m.examTitle,m.subject,m.score,m.maxMarks,m.status]));
+    else if(report==="fees"&&["admin","finance"].includes(currentUser.role))rows.push(["Invoice","Student","Description","Amount","Paid","Balance","Status","Due date"],...visibleInvoices().map(i=>[i.id,studentName(i.studentId),i.description,i.amount,i.paidAmount||0,totalDue(i),i.status,i.dueDate]));
+    else if(report==="payments"&&["admin","finance"].includes(currentUser.role))rows.push(["Receipt","Date","Invoice","Student","Amount","Method","Collector"],...schoolData.payments.filter(p=>ids.has(p.studentId)).map(p=>[p.receiptNo,p.date,p.invoiceId,studentName(p.studentId),p.amount,p.method,p.collectedBy]));
+    else if(report==="expenses"&&["admin","finance"].includes(currentUser.role))rows.push(["ID","Expense","Category","Amount","Date","Status"],...schoolData.expenses.map(e=>[e.id,e.title,e.category,e.amount,e.date,e.status]));
+    else if(report==="audit"&&currentUser.role==="admin")rows.push(["Date","Actor","Activity"],...schoolData.audit.map(a=>[a.date,a.actor,a.message]));
+    else if(report==="admissions"&&currentUser.role==="admin")rows.push(["ID","Applicant","Class","Contact","Source","Status"],...schoolData.admissions.map(a=>[a.id,a.applicant,a.className,a.contact,a.source,a.status]));
+    else return showPortalMessage("That report isn't available for this role.",true);
+    downloadData("\ufeff"+rows.map(row=>row.map(csvValue).join(",")).join("\r\n"),"text/csv;charset=utf-8",`saraswati-${report}-${todayISO()}-demo.csv`);
+    recordAudit("Exported demo report "+report);persistDemoData();showPortalMessage("CSV downloaded with fictional demo data only.",false);
+  }
+
+  function advancedClick(action,id,button) {
+    if(!currentIsDemo||!schoolData)return;
+    if(action==="resolve-approval")return resolveApproval(id,button.dataset.outcome||"Rejected");
+    if(action==="collect-payment")return submitPayment(id);
+    if(action==="download-receipt")return downloadReceipt(id);
+    if(action==="export-report")return exportReport(button.dataset.report||"");
+    if(action==="read-notification"){
+      const n=schoolData.notifications.find(x=>x.id===id);if(!n)return;n.readBy||=[];if(!n.readBy.includes(currentUser.email))n.readBy.push(currentUser.email);persistDemoData();renderView();return showPortalMessage("Notification marked read.",false);
+    }
+    if(action==="read-all-notifications"){
+      schoolData.notifications.forEach(n=>{n.readBy||=[];if(!n.readBy.includes(currentUser.email))n.readBy.push(currentUser.email);});persistDemoData();renderView();return showPortalMessage("All notifications marked read in this demo.",false);
+    }
+    if(action==="publish-mark"||action==="unpublish-mark"){
+      if(currentUser.role!=="admin")return;const m=schoolData.marks.find(x=>x.id===id);if(!m)return;m.status=action==="publish-mark"?"Published":"Draft";recordAudit(m.status+" marks for "+studentName(m.studentId));persistDemoData();renderView();return;
+    }
+    if(action==="submit-mark-approval"){
+      if(currentUser.role!=="teacher")return;const m=schoolData.marks.find(x=>x.id===id&&x.status==="Draft");if(!m)return;m.status="Pending approval";askApproval("Marks publication","Publish "+m.subject+" marks · "+studentName(m.studentId),`${m.examTitle}: ${m.score}/${m.maxMarks}.`,"mark",m.id);persistDemoData();renderView();return;
+    }
+    if(action==="publish-datesheet"){
+      if(currentUser.role!=="admin")return;const s=schoolData.datesheets.find(x=>x.id===id);if(!s)return;s.status="Published";persistDemoData();renderView();return;
+    }
+    if(action==="review-submission"){
+      if(!["teacher","admin"].includes(currentUser.role))return;const s=schoolData.submissions.find(x=>x.id===id);if(!s)return;const feedback=window.prompt("Enter feedback for "+studentName(s.studentId)+":","Good effort — reviewed.");if(feedback===null)return;s.status="Reviewed";s.feedback=feedback.slice(0,400);s.reviewedBy=currentUser.fullName;notify("Homework feedback","Teacher feedback is available for "+studentName(s.studentId)+".","student",s.studentId);recordAudit("Reviewed homework submission");persistDemoData();renderView();return;
+    }
+    if(action==="advance-admission"){
+      if(currentUser.role!=="admin")return;const a=schoolData.admissions.find(x=>x.id===id);if(!a)return;const stages=["New","Contacted","Visit scheduled","Admitted","Closed"];a.status=stages[(stages.indexOf(a.status)+1)%stages.length];recordAudit("Admission "+a.id+" moved to "+a.status);persistDemoData();renderView();return;
+    }
+    if(action==="checkout-book"){
+      if(!["admin","teacher"].includes(currentUser.role))return;const b=schoolData.libraryBooks.find(x=>x.id===id);if(!b||b.available<1)return;const input=window.prompt("Enter demo student ID to issue "+b.title+":\n"+schoolData.students.map(s=>s.id+" — "+s.fullName).join("\n"),"STU-001");if(input===null)return;const s=studentById(input.trim());if(!s)return showPortalMessage("Student ID not found.",true);schoolData.libraryLoans.unshift({id:"LIB-"+Date.now(),bookId:b.id,studentId:s.id,issueDate:todayISO(),dueDate:new Date(Date.now()+14*86400000).toISOString().slice(0,10),status:"Borrowed"});b.available--;recordAudit("Issued book "+b.title+" to "+s.fullName);persistDemoData();renderView();return;
+    }
+    if(action==="return-book"){
+      if(!["admin","teacher"].includes(currentUser.role))return;const l=schoolData.libraryLoans.find(x=>x.id===id&&x.status==="Borrowed");if(!l)return;l.status="Returned";l.returnDate=todayISO();const b=schoolData.libraryBooks.find(x=>x.id===l.bookId);if(b)b.available=Math.min(b.total,b.available+1);recordAudit("Returned library book");persistDemoData();renderView();return;
+    }
+    if(action==="issue-inventory"){
+      if(!["admin","teacher"].includes(currentUser.role))return;const item=schoolData.inventory.find(x=>x.id===id);if(!item||item.quantity<=0)return;const input=window.prompt("Quantity to issue (available: "+item.quantity+")","1");if(input===null)return;const quantity=Number(input);if(!Number.isInteger(quantity)||quantity<1||quantity>item.quantity)return showPortalMessage("Enter a whole number within available stock.",true);item.quantity-=quantity;schoolData.inventoryMovements.unshift({id:"MOV-"+Date.now(),itemId:id,quantity,type:"Issue",by:currentUser.fullName,date:todayISO()});recordAudit("Issued inventory item "+item.name);persistDemoData();renderView();return;
+    }
+    if(action==="download-resource"){
+      const r=(schoolData.resources||[]).find(x=>x.id===id);if(r)downloadData(`${r.title}\n${r.subject}\n\n${r.description}\n\nFictional ERP demo note.`,"text/plain;charset=utf-8",r.id+".txt");
+    }
+  }
+
+  portalRoot.addEventListener("click",event=>{
+    const b=event.target.closest("[data-action]");
+    if(b&&["resolve-approval","collect-payment","download-receipt","export-report","read-notification","read-all-notifications","publish-mark","unpublish-mark","submit-mark-approval","publish-datesheet","review-submission","advance-admission","checkout-book","return-book","issue-inventory","download-resource"].includes(b.dataset.action))advancedClick(b.dataset.action,b.dataset.id,b);
+  });
+
+  portalRoot.addEventListener("submit",event=>{
+    const form=event.target;if(!form.matches("form"))return;
+    if(form.matches(".homework-submit-form")){event.preventDefault();if(currentIsDemo)submitWork(form);return;}
+    const handlers={"homework-form":submitHomework,"communication-form":submitMessage,"request-form":submitRequest,"timetable-form":submitTimetableChange,"expense-form":submitExpense,"admission-form":submitAdmission,"calendar-form":submitCalendar};
+    const handler=handlers[form.id];if(!handler)return;
+    event.preventDefault();if(!currentIsDemo)return showPortalMessage("Live module actions are not connected yet.",true);
+    const permissions={"homework-form":["admin","teacher"],"communication-form":["admin","finance","teacher","parent","student"],"request-form":["admin","teacher","parent","student"],"timetable-form":["admin","teacher"],"expense-form":["admin","finance"],"admission-form":["admin"],"calendar-form":["admin"]};
+    if(!permissions[form.id].includes(currentUser.role))return showPortalMessage("This action isn't available for your demo role.",true);
+    handler(form);
+  });
 
 portalRoot.addEventListener("click", async event => {
   const navButton = event.target.closest("[data-nav]");
